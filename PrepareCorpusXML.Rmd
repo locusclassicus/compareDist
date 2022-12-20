@@ -57,7 +57,7 @@ codes <- gsub("\\.perseus-grc1.xml", "", files)
 codes <- gsub("\\.perseus-grc2.xml", "", codes)
 data <- cbind(data, codes)
 colnames(data) <- c("id", "author", "text", "code")
-data
+data$author <- gsub("\\W.+", "", data$author)
 ```
 
 ## Add texts (1)
@@ -147,64 +147,61 @@ corpus2.t %>% group_by(author) %>%
   xlab(NULL)
 ```
 
-# Select long texts
+# Select authors with 1 text only
 ```{r}
-# select long texts
-long.w <- corpus2.t %>% 
+Gal_Thuc <- corpus2.t %>% 
+  filter(author %in% c("Galen", "Thucydides")) %>%
   group_by(author, work) %>% 
-  count() %>% 
-  filter(n > 15000) %>% 
-  pull(work)
-long.w 
-# take one sample from  5,6,7,8,12,13,14,16,17,18,19 (authors already present in corpus1)
-one_sample <- long.w[c(5,6,7,8,12,13,14,16,17,18,19)]
-# make several samples from 15, 11 (authors presented by only one text in the corpus)
-three_samples <- long.w[c(15, 11)]
-```
-
-# Make samples for long texts
-```{r}
-# make samples for long texts
-long.sel1 <- corpus2.t %>% 
-  filter(work %in% one_sample) %>% 
-  group_by(work) %>% 
-  mutate(sample = round((row_number() + 15000) / 15000)) %>%
-  group_by(author, work) %>% 
-  filter(sample == 1)
-
-long.sel2 <- corpus2.t %>% 
-  filter(work %in% three_samples) %>% 
-  group_by(work) %>% 
-  mutate(sample = round((row_number() + 15000) / 15000)) %>%
-  group_by(author, work) %>% 
+  mutate(sample = round((row_number() + 15000) / 15000)) %>% 
   filter(sample < 4)
 ```
 
-# Bind long and smaller texts
+# Bind texts and samples
 ```{r}
-# bind
-small.t <- corpus2.t %>% 
-  filter(!work %in% long.w)
-corpus2.f <- bind_rows(small.t, long.sel1, long.sel2) # NAs will be produced
+corpus_all <- corpus2.t %>% 
+  filter(!author %in% c("Galen", "Thucydides")) %>% 
+  bind_rows(Gal_Thuc)
 ```
+
+# Shrink Aristotle and Xenophon
+```{r}
+XA <- corpus_all %>% 
+  filter(author %in% c("Aristotle", "Xenophon")) %>% 
+  group_by(author, work) %>% 
+  mutate(sample = round((row_number() + 15000) / 15000)) %>% 
+  filter(sample == 2)
+
+XA %>% count()
+
+corpus_all <- corpus_all %>% 
+  filter(!author %in% c("Aristotle", "Xenophon")) %>% 
+  bind_rows(XA)
+  
+```
+
 
 # Plot
 ```{r}
 # plot
-corpus2.f %>% group_by(author) %>% count() %>%
+corpus_all %>% group_by(author) %>% 
+  count() %>%
   ggplot(aes(x = reorder(author, n), y = n, fill=author)) +
-  geom_col(show.legend = F) + coord_flip() + theme_bw() + xlab(NULL)
+  geom_col(show.legend = F) + 
+  coord_flip() + 
+  theme_bw() + 
+  xlab(NULL)
 ```
 
 # Corpus Stats
 ```{r}
-corpus2.f %>% group_by(author) %>% count()
+corpus_all %>% group_by(author) %>% count()
 ```
+
 
 # Ad Group IDs
 ```{r}
 # add group ids
-groups <- corpus2.f %>% group_by(author, work, sample) %>% 
+groups <- corpus_all %>% group_by(author, work, sample) %>% 
   mutate(group_id = cur_group_id())
 ids <- sort(unique(groups$group_id))
 ids
