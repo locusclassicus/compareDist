@@ -2,7 +2,9 @@
 title: "PrepareCorpus"
 author: "Olga Alieva"
 date: "2022-12-10"
-output: html_document
+output: 
+  html_document: 
+    keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -25,7 +27,7 @@ library(ggplot2)
 ## RPerseus: Select Authors and Works
 ```{r}
 # group names
-group_names <- c("Lucianus", "Gorgias", "Antisthenes", "Lysias", "Plato", "Aristotle", "Isocrates", "Alcidamas", "Polybius", "Herodotus", "Plotinus", "Xenophon", "Plutarch")
+group_names <- c("Lucianus", "Gorgias", "Antisthenes", "Lysias", "Isocrates", "Alcidamas", "Polybius", "Herodotus", "Plotinus", "Plutarch")
 
 # subset authors
 subset_authors <- perseus_catalog %>% 
@@ -38,25 +40,32 @@ names <- subset_authors %>%
   count() %>% 
   filter(n > 4) %>% 
   pull(group_name) 
-set.seed(1234)
-subset <- subset_authors %>% 
-  filter(group_name %in% names) %>% 
-  group_by(group_name) %>% 
-  slice_sample(n=4)
+
+Isocrates <- subset_authors %>% 
+  filter(group_name == "Isocrates", 
+         label %in% c("Busiris", "To Nicocles", "Against the Sophists")) 
+
+Lysias <- subset_authors %>% filter(group_name == "Lysias", 
+                                    label %in% c("Olympic Oration", "Funeral Oration", "Against Eratosthenes"))
+
+Plutarch <- subset_authors %>% filter(group_name == "Plutarch",
+                                      label %in% c("Solon", "Alcibiades", "Romulus"))
+  
 subset_join <- subset_authors %>% 
   filter(!group_name %in% names) %>% 
-  bind_rows(subset) %>% 
+  bind_rows(Plutarch, Lysias, Isocrates) %>% 
   select(-description, -language)
 
 subset_join %>% 
   group_by(group_name) %>% 
-  count() # 10 groups
+  count() 
+
 subset_join %>% 
-  count(n()) # 30 works
+  count(n()) 
 ```
 
-## Retrieve texts and save
-```{r}
+## Retrieve texts
+```{r message=FALSE, warning=FALSE}
 # pull urns
 urns <- subset_join %>% 
   pull(urn)
@@ -109,41 +118,27 @@ corpus %>% group_by(author) %>%
   xlab(NULL)
 ```
 
-# Sample long texts
+# Sample authors with single texts
 ```{r}
-# select long texts 
-long.w <- corpus %>% 
+# select Plotinus and Herodotus
+Pl_Her <- corpus %>% 
+  filter(author %in% c("Plotinus", "Herodotus")) %>% 
   group_by(author, work) %>% 
-  count() %>% 
-  filter(n > 15000) %>% 
-  pull(work)
-long.w
-
-# make samples for long texts
-long.div <- corpus %>% 
-  filter(work %in% long.w) %>% 
-  group_by(work) %>% 
-  mutate(sample = round((row_number() + 15000) / 15000)) 
-
-my_samples <- c(1:3)
-
-# select samples from long texts
-long.sel <- long.div %>% 
-  group_by(author, work) %>% 
-  filter(sample %in% my_samples)
+  mutate(sample = round((row_number() + 15000) / 15000)) %>% 
+  filter(sample < 4)
 ```
 
-# Join long and small texts
+# Join samples and whole texts
 ```{r}
-small.t <- corpus %>% 
-  filter(!work %in% long.w)
-corpus <- bind_rows(small.t, long.sel) # NAs will be produced
+corpus_all <- corpus %>% 
+  filter(!author %in% c("Plotinus", "Herodotus")) %>% 
+  bind_rows(Pl_Her) # NAs will be produced
 ```
 
 # Plot corpus size
 ```{r}
 # plot
-corpus %>% 
+corpus_all %>% 
   group_by(author) %>% 
   count() %>%
   ggplot(aes(x = reorder(author, n), y = n, fill=author)) +
@@ -155,27 +150,27 @@ corpus %>%
 
 # Corpus Stats
 ```{r}
-corpus %>% group_by(author) %>% count()
+corpus_all %>% group_by(author) %>% count()
 ```
 
 # Plot Sample Size
 ```{r}
 # plot sample size
-corpus %>% group_by(work, sample) %>% count() %>%
+corpus_all %>% group_by(work, sample) %>% count() %>%
   ggplot(aes(x=n)) + geom_freqpoly()
 ```
 
 # Add Group IDs
 ```{r}
 # add group ids
-groups <- corpus %>% group_by(author, work, sample) %>% 
+groups <- corpus_all %>% group_by(author, work, sample) %>% 
   mutate(group_id = cur_group_id())
 ids <- sort(unique(groups$group_id))
 ids
 ```
 
 # Write text Files
-```{r}
+```{r message=FALSE}
 # write text files 
 for(i in ids){
   message(paste("processing sample ", i))

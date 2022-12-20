@@ -1,0 +1,236 @@
+---
+title: "PrepareCorpusXML"
+author: "Olga Alieva"
+date: "2022-12-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Description 
+
+This file contains code for extracting a corpus of selected Ancient Greek texts from Perseus' Canonical Greek Literature repository <https://github.com/PerseusDL/canonical-greekLit>.
+
+## Load libraries
+```{r}
+library(XML)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+```
+
+# Get Files
+```{r}
+files = list.files(path = "./xml_corpus", pattern = ".xml")
+```
+
+# Get names and authors
+```{r warning=FALSE}
+## Get names and authors 
+data <- c()
+
+for (i in 1:length(files)){
+  doc <- xmlTreeParse(paste("./xml_corpus/", files[i], sep = ""), useInternalNodes = T)
+  title <- xmlValue(getNodeSet(doc, "/tei:TEI/tei:teiHeader/tei:fileDesc/tei:titleStmt/tei:title", namespaces = c(tei = "http://www.tei-c.org/ns/1.0")))
+  author <- xmlValue(getNodeSet(doc, "/tei:TEI/tei:teiHeader/tei:fileDesc/tei:titleStmt/tei:author", namespaces = c(tei = "http://www.tei-c.org/ns/1.0")))
+  
+  if(is.list(title) != T || is.list(author) != T) {
+    data <- rbind(data, c(i, author, title))
+    
+  } else {
+    
+    author <- xpathSApply(doc, "//titleStmt/author", xmlValue)
+    title <- xpathSApply(doc, "//titleStmt/title", xmlValue)
+    data <- rbind(data, c(i, author, title))
+  }}
+
+data <- as.data.frame(data)
+
+```
+
+# Add numeric codes
+```{r}
+# Add numeric codes for authors and works
+codes <- gsub("\\.perseus-grc1.xml", "", files)
+codes <- gsub("\\.perseus-grc2.xml", "", codes)
+data <- cbind(data, codes)
+colnames(data) <- c("id", "author", "text", "code")
+data
+```
+
+## Add texts (1)
+```{r}
+# add texts 1
+for (i in 1:length(files)){
+  doc <- xmlTreeParse(paste("./xml_corpus/", files[i], sep = ""),
+                      useInternalNodes = T)
+  node <- getNodeSet(doc, "/tei:TEI//tei:text//tei:body//tei:div//tei:p",
+                     namespaces = c(tei = "http://www.tei-c.org/ns/1.0"))
+  text <- as.character(xmlValue(node))
+  text.clean <- gsub("\n", " ", text)
+  text.v <- paste(text.clean, collapse = ' ')
+  data[i,5] <- text.v}
+
+idx <- which(data[,5] != "")
+data1 <- data[idx, ]
+```
+
+## Add texts (2)
+```{r}
+# add texts 2
+files2 <- files[-idx]
+data2 <- data[-idx, ]
+
+for (i in 1:length(files2)){
+  doc <- xmlTreeParse(paste("./xml_corpus/", files2[i], sep = ""), 
+                      useInternalNodes = T)
+  node <- getNodeSet(doc, "//text//body//p",
+                     namespaces = c(tei =    
+                                      "http://www.tei-c.org/ns/1.0"))
+  if(length(node) != 0) {
+    text <- as.character(xmlValue(node))
+    text.clean <- gsub("\n", " ", text)
+    text.v <- paste(text.clean, collapse = ' ')
+    data2[i,5] <- text.v
+  } else {
+    node <- getNodeSet(doc, "//tei:text//tei:body//tei:p",
+                       namespaces = c(tei = "http://www.tei-c.org/ns/1.0"))
+    text <- as.character(xmlValue(node))
+    text.clean <- gsub("\n", " ", text)
+    text.v <- paste(text.clean, collapse = ' ')
+    data2[i,5] <- text.v
+  }
+}
+```
+
+# Bind texts
+```{r}
+# bind all texts
+corpus2 <- as_tibble(rbind(data1, data2)) %>% 
+  select(-id, -code) %>% 
+  rename(work = text, text = V5)
+```
+
+# Tidy up
+```{r}
+# tidy up
+# remove several capital Greek letters in a row 
+corpus2$text <- corpus2$text %>% 
+  str_remove_all("[:upper:]{2,}")
+
+# remove Latin characters (mostly editorial notes)
+corpus2$text <- corpus2$text %>% 
+  str_remove_all("[A-Za-z]")
+
+# remove punctuation
+corpus2$text <- corpus2$text %>% 
+  str_remove_all("[:punct:]")
+
+# tokenize (this will be a very long data!)
+library(tidytext)
+corpus2.t <- corpus2 %>% 
+  unnest_tokens(word, text)
+nrow(corpus2.t) 
+```
+
+# Compare text lengths
+```{r}
+# compare text lengths
+corpus2.t %>% group_by(author) %>% 
+  count() %>%
+  ggplot(aes(x = reorder(author, n), y = n, fill=author)) +
+  geom_col(show.legend = F) + 
+  coord_flip() + 
+  theme_bw() + 
+  xlab(NULL)
+```
+
+# Select long texts
+```{r}
+# select long texts
+long.w <- corpus2.t %>% 
+  group_by(author, work) %>% 
+  count() %>% 
+  filter(n > 15000) %>% 
+  pull(work)
+long.w 
+# take one sample from  5,6,7,8,12,13,14,16,17,18,19 (authors already present in corpus1)
+one_sample <- long.w[c(5,6,7,8,12,13,14,16,17,18,19)]
+# make several samples from 15, 11 (authors presented by only one text in the corpus)
+three_samples <- long.w[c(15, 11)]
+```
+
+# Make samples for long texts
+```{r}
+# make samples for long texts
+long.sel1 <- corpus2.t %>% 
+  filter(work %in% one_sample) %>% 
+  group_by(work) %>% 
+  mutate(sample = round((row_number() + 15000) / 15000)) %>%
+  group_by(author, work) %>% 
+  filter(sample == 1)
+
+long.sel2 <- corpus2.t %>% 
+  filter(work %in% three_samples) %>% 
+  group_by(work) %>% 
+  mutate(sample = round((row_number() + 15000) / 15000)) %>%
+  group_by(author, work) %>% 
+  filter(sample < 4)
+```
+
+# Bind long and smaller texts
+```{r}
+# bind
+small.t <- corpus2.t %>% 
+  filter(!work %in% long.w)
+corpus2.f <- bind_rows(small.t, long.sel1, long.sel2) # NAs will be produced
+```
+
+# Plot
+```{r}
+# plot
+corpus2.f %>% group_by(author) %>% count() %>%
+  ggplot(aes(x = reorder(author, n), y = n, fill=author)) +
+  geom_col(show.legend = F) + coord_flip() + theme_bw() + xlab(NULL)
+```
+
+# Corpus Stats
+```{r}
+corpus2.f %>% group_by(author) %>% count()
+```
+
+# Ad Group IDs
+```{r}
+# add group ids
+groups <- corpus2.f %>% group_by(author, work, sample) %>% 
+  mutate(group_id = cur_group_id())
+ids <- sort(unique(groups$group_id))
+ids
+```
+
+# Write files
+
+```{r message=FALSE}
+# write files
+for(i in ids){
+  message(paste("processing sample ", i))
+  author <- groups %>% filter(group_id == i) %>% 
+    pull(author) %>% unique()
+  title <- groups %>% filter(group_id == i) %>% 
+    pull(work) %>% unique()
+  id <- i
+  text <- groups %>% filter(group_id == i) %>% pull(word)
+  filename <- paste0(author, "_", title, "_", id, ".txt")
+  write.table(text, file = filename, row.names = FALSE, 
+              col.names = FALSE, quote = FALSE)
+}
+```
+
+**For the final_corpus, several txt-files are  deleted manually both from corpus1 (RPerseus) and corpus2 (XML)**
+
+All experiments are made on the final_corpus!!!
+
+
+
