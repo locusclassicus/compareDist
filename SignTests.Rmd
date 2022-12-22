@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Load and bind data
 ```{r}
+library(dplyr)
 load("/Users/olga/R_Workflow/compareDist/data/CosS.Rdata")
 load("/Users/olga/R_Workflow/compareDist/data/Labbe.Rdata")
 load("/Users/olga/R_Workflow/compareDist/data/TanNS.Rdata")
@@ -22,6 +23,7 @@ best <- cos_s %>%
 
 # Prepare vectors
 ```{r}
+library(yardstick)
 cos_acc <- best %>% 
   filter(method == "cosine") %>% 
   group_by(size) %>% 
@@ -40,9 +42,9 @@ lab_acc <- best %>%
   accuracy(truth = expected, estimate = predicted) %>% 
   pull(.estimate)
 
-wilcox.test(lab_acc, tan_acc)
-wilcox.test(lab_acc, cos_acc)
-wilcox.test(cos_acc, tan_acc)
+wilcox.test(lab_acc, tan_acc, paired = T)
+wilcox.test(lab_acc, cos_acc, paired = T)
+wilcox.test(cos_acc, tan_acc, paired = T)
 
 ```
 
