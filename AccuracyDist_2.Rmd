@@ -1,0 +1,160 @@
+---
+title: "AccuracyDist_2"
+author: "Olga Alieva"
+date: "2022-12-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load packages
+```{r message=FALSE}
+library(tidyverse)
+library(yardstick)
+```
+
+# Load data
+```{r}
+load("/Users/olga/R_Workflow/compareDist/data/3NCanbNS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NCanbS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NClarNS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NClarS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NCosNS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NCosS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NEuclNS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NEuclS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NJeffNS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NLabbe.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NManhNS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NManhS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NTanNS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/3NTanS.Rdata")
+```
+
+# Bind data
+```{r}
+data_w <- manh3N_s %>% 
+  bind_rows(manh3N_ns) %>% 
+  bind_rows(eucl3N_ns) %>% 
+  bind_rows(eucl3N_s) %>% 
+  bind_rows(cos3N_ns) %>% 
+  bind_rows(cos3N_s) %>% 
+  bind_rows(tan3N_ns) %>% 
+  bind_rows(tan3N_s) %>% 
+  bind_rows(canb3N_ns) %>% 
+  bind_rows(canb3N_s) %>% 
+  bind_rows(clar3N_ns) %>% 
+  bind_rows(clar3N_s) %>% 
+  bind_rows(jeff3N_ns) %>% 
+  bind_rows(labbe3N) 
+```
+
+# Get mean accuracy for each method
+```{r}
+acc_all <- data_w %>% group_by(method, scale) %>%
+  accuracy(truth = expected, estimate = predicted) %>% 
+  select(-.metric, -.estimator) %>% 
+  arrange(-.estimate) %>% mutate(.estimate = round(.estimate, 3))
+write_csv(acc_all, "tables/3NAccAll.csv")
+```
+
+# Delete methods with very low performace
+```{r}
+data_w <- manh_s %>% 
+  bind_rows(manh_ns) %>% 
+  bind_rows(eucl_ns) %>% 
+  bind_rows(cos_ns) %>% 
+  bind_rows(cos_s) %>% 
+  bind_rows(tan_ns) %>% 
+  bind_rows(canb_ns) %>% 
+  bind_rows(clar_ns) %>% 
+  bind_rows(jeff_ns) %>% 
+  bind_rows(labbe)
+```
+
+
+# Accuracy by mfw / sample size
+```{r}
+png(filename="AccW.png",width=1000, height=436)
+data_w %>% 
+  mutate(mfw = cut(mfw, breaks=c(0, 200, 400, 600, 800, 1000), 
+                   labels=paste0("mfw", c(200, 400, 600, 800, 1000),
+                                 sep=""))) %>% 
+  group_by(size, mfw, method, scale) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  ggplot(aes(x = size, y=.estimate, color = mfw)) +
+  geom_line() + 
+  theme(legend.position = c(0.8, 0.2)) +
+  facet_wrap(facets = ~method + scale, nrow = 2) +
+  theme_bw() + 
+  xlab("длина отрывка") +
+  ylab("точность")
+dev.off()
+```
+# Maximum accuracy 
+```{r}
+top_w <- data_w %>% group_by(method, scale, mfw, size) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  select(-.metric, -.estimator) %>% 
+  mutate(.estimate = round(.estimate, 3)) %>% 
+  slice_max(.estimate, n=10)
+write_csv(top_w, "TopW.csv")
+```
+
+# Where classifiers fail
+```{r}
+data_w %>% filter(method == "cosine", scale == T) %>% 
+  group_by(expected) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  select(-.metric, -.estimator) %>% 
+  arrange(.estimate)
+
+data_w %>% filter(method == "labbe") %>% 
+  group_by(expected) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  select(-.metric, -.estimator) %>% 
+  arrange(.estimate)
+
+data_w %>% filter(method == "tanimoto", scale == F) %>% 
+  group_by(expected) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  select(-.metric, -.estimator) %>% 
+  arrange(.estimate)
+```
+
+# Common errors
+```{r}
+errors <- data_w %>% filter(method == "cosine", scale == T,
+                  expected %in% c("Aristotle", "Aristides", 
+                                  "Demosthenes")) %>%
+  group_by(expected) %>% 
+  count(predicted) %>% ungroup() %>% 
+  group_by(expected) %>% 
+  slice_max(n, n = 4)
+  
+write_csv(errors, "Errors3W.csv")
+```
+
+# Where classifiers perform best
+```{r}
+data_w %>% filter(method == "cosine", scale == T) %>% 
+  group_by(expected) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  select(-.metric, -.estimator) %>% 
+  arrange(-.estimate)
+
+data_w %>% filter(method == "labbe") %>% 
+  group_by(expected) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  select(-.metric, -.estimator) %>% 
+  arrange(-.estimate)
+
+data_w %>% filter(method == "tanimoto", scale == F) %>% 
+  group_by(expected) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  select(-.metric, -.estimator) %>% 
+  arrange(-.estimate)
+```
+

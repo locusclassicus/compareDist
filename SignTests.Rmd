@@ -1,0 +1,79 @@
+---
+title: "SignTests"
+author: "Olga Alieva"
+date: "2022-12-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load and bind data
+```{r}
+load("/Users/olga/R_Workflow/compareDist/data/CosS.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/Labbe.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/TanNS.Rdata")
+
+best <- cos_s %>% 
+  bind_rows(labbe) %>% 
+  bind_rows(tan_ns)
+```
+
+# Prepare vectors
+```{r}
+cos_acc <- best %>% 
+  filter(method == "cosine") %>% 
+  group_by(size) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  pull(.estimate)
+
+tan_acc <- best %>% 
+  filter(method == "tanimoto") %>% 
+  group_by(size) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  pull(.estimate)
+
+lab_acc <- best %>% 
+  filter(method == "labbe") %>% 
+  group_by(size) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  pull(.estimate)
+
+wilcox.test(lab_acc, tan_acc)
+wilcox.test(lab_acc, cos_acc)
+wilcox.test(cos_acc, tan_acc)
+
+```
+
+# Test
+```{r warning=FALSE}
+combinations <- combn(c("cosine", "tanimoto", "labbe"), 2)
+sizes <- unique(lab_acc$size)
+tests <- tibble()
+for(i in sizes){
+  for(n in 1:ncol(combinations)){
+    vec1 <- best %>% 
+      filter(method == combinations[,n][1]) %>% 
+      filter(size == i) %>%
+      group_by(id) %>% 
+      accuracy(truth = expected, estimate = predicted) %>% 
+      pull(.estimate)
+     vec2 <- best %>% 
+      filter(method == combinations[,n][2]) %>% 
+      filter(size == i) %>%
+      group_by(id) %>% 
+      accuracy(truth = expected, estimate = predicted) %>% 
+      pull(.estimate)
+     wt <- wilcox.test(vec1, vec2)$p.value
+     output = c(combinations[,n][1], round(mean(vec1),2), combinations[,n][2], round(mean(vec2),2), i, wt)
+     tests <- rbind(tests, output)
+  }
+}
+colnames(tests) <- c("distance1", "mean1", "distance2", "mean2", "size", "pvalue")
+tests$pvalue <- round(as.numeric(tests$pvalue), 2)
+
+significant <- tests %>% mutate(sign = (pvalue < 0.05))
+write.csv(significant, file = "tables/Significance.csv")
+significant %>% group_by(distance1, distance2) %>% count(sign)
+```

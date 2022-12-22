@@ -1,0 +1,17 @@
+method,scale,mfw,size,.estimate
+cosine,TRUE,500,6500,0.968
+cosine,TRUE,300,7000,0.965
+cosine,TRUE,400,7000,0.965
+cosine,TRUE,500,7000,0.965
+cosine,TRUE,600,5500,0.965
+cosine,TRUE,300,4500,0.963
+cosine,TRUE,400,6500,0.963
+cosine,TRUE,300,5500,0.961
+cosine,TRUE,300,6000,0.961
+cosine,TRUE,400,3500,0.96
+cosine,TRUE,400,4000,0.96
+cosine,TRUE,400,5000,0.96
+cosine,TRUE,400,5500,0.96
+cosine,TRUE,500,5000,0.96
+cosine,TRUE,600,5000,0.96
+cosine,TRUE,600,6500,0.96

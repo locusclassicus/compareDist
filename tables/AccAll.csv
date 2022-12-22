@@ -1,0 +1,15 @@
+method,scale,.estimate
+labbe,FALSE,0.918
+cosine,TRUE,0.915
+tanimoto,FALSE,0.901
+manhattan,FALSE,0.821
+clark,FALSE,0.765
+euclidean,FALSE,0.732
+canberra,FALSE,0.721
+jeffreys,FALSE,0.68
+cosine,FALSE,0.675
+manhattan,TRUE,0.595
+euclidean,TRUE,0.258
+clark,TRUE,0.115
+canberra,TRUE,0.053
+tanimoto,TRUE,0.042

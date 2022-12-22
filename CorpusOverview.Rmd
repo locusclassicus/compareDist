@@ -1,0 +1,139 @@
+---
+title: "CorpusOverview"
+author: "Olga Alieva"
+date: "2022-12-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load libraries
+```{r}
+library(vroom)
+library(stringr)
+library(tidyr)
+library(bubbles)
+library(dplyr)
+library(ggplot2)
+library(packcircles)
+library(treemap)
+```
+
+
+# Read files
+```{r message=FALSE}
+list_of_files <- list.files(path = "./corpus", recursive = TRUE,
+                            pattern = "\\.txt$", 
+                            full.names = T)
+corpus <- vroom(list_of_files, id = "FileName", delim = "\n", 
+                      col_names = F)
+```
+
+# Tidy up ids
+```{r}
+## tidy up ids 
+corpus$FileName <- str_remove_all(corpus$FileName, "./corpus/")
+corpus$FileName <- str_remove_all(corpus$FileName, ".txt")
+corpus <- corpus %>% separate(FileName, c("author", "book"), sep = "_")
+corpus <- rename(corpus, word = X1)
+```
+
+# Save
+```{r}
+save(corpus, file = "./data/Corpus.Rdata")
+```
+
+# Stats
+```{r}
+corpus_counts <- corpus %>% 
+  group_by(author) %>% 
+  count() 
+corpus_counts
+```
+
+## Plot
+```{r}
+corpus_counts %>% 
+  ggplot(aes(x=reorder(author, n), y = n, fill = author)) + 
+  geom_col(show.legend = F) + 
+  coord_flip() + 
+  theme_bw() + 
+  xlab(NULL)
+```
+
+## Bubbles
+```{r}
+# get colors
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+my_col <- gg_color_hue(17)
+
+
+bubbles(value = sqrt(corpus_counts$n), 
+        color = my_col, 
+        label = corpus_counts$author)
+
+
+```
+
+# Circles
+```{r}
+
+packing <- circleProgressiveLayout(corpus_counts$n, sizetype= "area")
+dat.gg <- circleLayoutVertices(packing)
+
+mydata <- cbind(corpus_counts, packing)
+
+pl <- ggplot()
+pl <- pl + geom_polygon(data = dat.gg, 
+                        aes(x, y, group = id, 
+                            fill= as.factor(id),
+                            alpha = 0.7))
+pl <- pl + geom_text(data = mydata, aes(x, y, size=n, label = paste0(author, '\n', scales::comma(n))))
+pl <- pl + scale_size_continuous(range = c(2,4))
+pl <- pl+ coord_equal()
+pl <- pl + theme_void()
+pl <- pl + theme(legend.position="none")
+pl <- pl + scale_fill_manual(values= my_col)
+pl
+```
+
+
+# Some Stats
+```{r}
+corpus_data <- corpus %>% group_by(author, book) %>% count() 
+corpus_data
+write.csv(corpus_data, file = "Titles.csv")
+
+corpus_data %>% ungroup() %>%  summarise(total = sum(n))
+```
+
+# Tree map
+```{r}
+png(filename="tree.png",width=1050, height=674)
+treemap(corpus_data,
+        index=c("author", "book"),
+        vSize="n",
+        type="index",
+        fontsize.labels=c(17,15),         
+        fontcolor.labels=c("white","sandybrown"),
+        fontface.labels=c(2,1),
+        bg.labels=c("transparent"),
+        align.labels=list(
+        c("center", "center"), 
+        c("right", "bottom")
+        ), 
+        overlap.labels=0.6,
+        inflate.labels=F, 
+        border.col=c("grey37","grey45"),
+        fontsize.title = 0
+        )
+dev.off
+```
+
+
+

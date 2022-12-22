@@ -1,0 +1,338 @@
+---
+title: "compareDist_1"
+author: "Olga Alieva"
+date: "2022-12-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# load packages and source functions
+```{r message=FALSE}
+library(tidyverse)
+library(stylo)
+library(philentropy)
+source("~/R_Workflow/compareDist/DistResample.R")
+```
+
+# Sample size and number of features
+```{r}
+# sample size and number of features
+sample.size = seq(1000, 7000, 500)
+nr.features = seq(100, 1000, 100)
+```
+
+# Load corpus
+```{r message=FALSE}
+# load corpus
+input.texts <-  load.corpus.and.parse(files = "all", 
+                                      corpus.dir = "corpus", 
+                                      features = "w", 
+                                      ngram.size = 1) 
+```
+
+# One preliminary test on the whole corpus 
+```{r message=FALSE}
+set.seed(1234)
+sp <- size.penalize(mfw = seq(100, 1000, 100), features = wordlist, 
+              corpus.dir = "corpus",
+              sample.size.coverage = seq(1000, 7000, 500),
+              sample.with.replacement = T,
+              iterations = 10, classification.method = "delta",
+              list.cutoff = 1000)
+
+```
+
+# Calculate accuracy
+```{r}
+acc <- c()
+for(i in 1:length(sp$accuracy.scores)){
+  cm <- sp$accuracy.scores[[i]]
+  a <- sum(rowSums(cm)) / (nrow(cm) * ncol(cm))
+  acc <- c(acc, a)
+}
+mean(acc) # 0.85
+```
+
+# 1 Manhattan, not scaled 
+```{r}
+set.seed(1234)
+manh_ns <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="manhattan",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = F),
+                           .id = "id")
+    manh_ns <- bind_rows(manh_ns, iter)
+  }
+}
+save(manh_ns, file = "data/ManhNS.Rdata") 
+```
+
+# Manhattan, scaled 
+```{r}
+set.seed(1234)
+manh_s <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="manhattan",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T,
+                                         use.scaled.freq = T),
+                           .id = "id")
+    manh_s <- bind_rows(manh_s, iter)
+  }
+}
+save(manh_s, file = "data/ManhS.Rdata")
+```
+
+# Euclidean, not scaled
+```{r}
+set.seed(1234)
+eucl_ns <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="euclidean",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = F),
+                           .id = "id")
+    eucl_ns <- bind_rows(eucl_ns, iter)
+  }
+}
+save(eucl_ns, file = "data/EuclNS.Rdata")
+```
+
+# Euclidean, scaled
+```{r}
+set.seed(1234)
+eucl_s <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="euclidean",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = T),
+                           .id = "id")
+    eucl_s <- bind_rows(eucl_s, iter)
+  }
+}
+save(eucl_s, file = "data/EuclS.Rdata")
+```
+
+# Cosine, not scaled
+```{r}
+set.seed(1234)
+cos_ns <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="cosine",
+                                         nr.features = i,
+                                         direction = "max",
+                                         relative = T, 
+                                         use.scaled.freq = F),
+                           .id = "id")
+    cos_ns <- bind_rows(cos_ns, iter)
+  }
+}
+save(cos_ns, file = "data/CosNS.Rdata")
+```
+
+# Cosine, scaled
+```{r}
+set.seed(1234)
+cos_s <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="cosine",
+                                         nr.features = i,
+                                         direction = "max",
+                                         relative = T,
+                                         use.scaled.freq = T),
+                           .id = "id")
+    cos_s <- bind_rows(cos_s, iter)
+  }
+}
+save(cos_s, file = "data/CosS.Rdata")
+```
+
+# Canberra, not scaled
+```{r}
+set.seed(1234)
+canb_ns <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="canberra",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = F),
+                           .id = "id")
+    canb_ns <- bind_rows(canb_ns, iter)
+  }
+}
+save(canb_ns, file = "data/CanbNS.Rdata")
+```
+
+# Canberra, scaled
+```{r}
+set.seed(1234)
+canb_s <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="canberra",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = T),
+                           .id = "id")
+    canb_s <- bind_rows(canb_s, iter)
+  }
+}
+save(canb_s, file = "data/CanbS.Rdata")
+```
+
+# Tanimoto, not scaled
+```{r}
+set.seed(1234)
+tan_ns <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="tanimoto",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = F),
+                           .id = "id")
+    tan_ns <- bind_rows(tan_ns, iter)
+  }
+}
+save(tan_ns, file = "data/TanNS.Rdata")
+```
+
+# Tanimoto, scaled
+```{r}
+set.seed(1234)
+tan_s <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="tanimoto",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = T),
+                           .id = "id")
+    tan_s <- bind_rows(tan_s, iter)
+  }
+}
+save(tan_s, file = "data/TanS.Rdata")
+```
+
+# Clark, not scaled
+```{r}
+set.seed(1234)
+clar_ns <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="clark",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = F),
+                           .id = "id")
+    clar_ns <- bind_rows(clar_ns, iter)
+  }
+}
+save(clar_ns, file = "data/ClarNS.Rdata")
+```
+
+# Clark,  scaled
+```{r}
+set.seed(1234)
+clar_s <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="clark",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = T),
+                           .id = "id")
+    clar_s <- bind_rows(clar_s, iter)
+  }
+}
+save(clar_s, file = "data/ClarS.Rdata")
+```
+
+# Jeffreys, not scaled
+```{r}
+set.seed(1234)
+jeff_ns <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="jeffreys",
+                                         nr.features = i,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = F),
+                           .id = "id")
+    jeff_ns <- bind_rows(jeff_ns, iter)
+  }
+}
+save(jeff_ns, file = "data/JeffNS.Rdata")
+```
+
+# Labbe 
+```{r}
+set.seed(1234)
+labbe <- tibble()
+for(n in sample.size){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="labbe",
+                                         nr.features = NULL,
+                                         direction = "min",
+                                         relative = F, 
+                                         use.scaled.freq = F),
+                           .id = "id")
+    labbe <- bind_rows(labbe, iter)
+}
+save(labbe, file = "data/Labbe.Rdata")
+```
+
+# CNG 
+```{r}
+set.seed(1234)
+cng_ns <- tibble()
+for(n in sample.size){
+    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
+                                         method="cng",
+                                         nr.features = NULL,
+                                         direction = "min",
+                                         relative = T, 
+                                         use.scaled.freq = F),
+                           .id = "id")
+    cng_ns <- bind_rows(cng_ns, iter)
+}
+save(cng_ns, file = "data/CngNS.Rdata")
+```
