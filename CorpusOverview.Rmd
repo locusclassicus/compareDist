@@ -135,5 +135,24 @@ treemap(corpus_data,
 dev.off
 ```
 
+# Bars
+```{r}
+corpus_data %>% 
+  group_by(author) %>% 
+  mutate(sum = sum(n)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x=reorder(author, sum), y=n, 
+             fill = book, label = book)) + 
+  geom_bar(stat="identity", 
+           position = position_stack(), 
+           show.legend = F) + 
+  geom_text(size=3, 
+            position = position_stack(vjust=0.5), 
+            colour = "grey30") +
+  coord_flip() + 
+  theme_bw() + 
+  xlab(NULL) +
+  ylab(NULL)
+```
 
 
