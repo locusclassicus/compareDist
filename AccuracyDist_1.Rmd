@@ -99,7 +99,8 @@ top_w <- data_w %>% group_by(method, scale, mfw, size) %>%
   accuracy(truth = expected, estimate = predicted) %>% 
   select(-.metric, -.estimator) %>% 
   mutate(.estimate = round(.estimate, 3)) %>% 
-  slice_max(.estimate, n=10)
+  top_n(wt = .estimate, n=100) %>% 
+  arrange(-.estimate)
 write_csv(top_w, "TopW.csv")
 ```
 
