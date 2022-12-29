@@ -1,4 +1,4 @@
-method,scale,.estimate
+method,scale,mean
 labbe,FALSE,0.918
 cosine,TRUE,0.915
 tanimoto,FALSE,0.901

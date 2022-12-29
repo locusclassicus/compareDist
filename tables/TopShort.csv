@@ -1,0 +1,7 @@
+method,scale,mfw,size,.estimate
+cosine,TRUE,700,2000,0.935
+cosine,TRUE,400,1500,0.933
+cosine,TRUE,400,2000,0.933
+cosine,TRUE,300,1500,0.932
+tanimoto,FALSE,800,1000,0.882
+cosine,TRUE,400,1000,0.875
