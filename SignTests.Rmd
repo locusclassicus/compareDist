@@ -26,25 +26,37 @@ best <- cos_s %>%
 library(yardstick)
 cos_acc <- best %>% 
   filter(method == "cosine") %>% 
+  filter(!mfw %in% c(100, 200)) %>% 
   group_by(size) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
-  pull(.estimate)
+  select(-.metric, -.estimator) %>% 
+  mutate(.estimate = round(.estimate, 3))
+write_csv(cos_acc, file = "tables/CosAcc.csv")
 
 tan_acc <- best %>% 
   filter(method == "tanimoto") %>% 
+  filter(!mfw %in% c(100, 200)) %>% 
   group_by(size) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
-  pull(.estimate)
+  select(-.metric, -.estimator) %>% 
+  mutate(.estimate = round(.estimate, 3))
+write_csv(tan_acc, file = "tables/TanAcc.csv")
 
 lab_acc <- best %>% 
   filter(method == "labbe") %>% 
   group_by(size) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
-  pull(.estimate)
+  select(-.metric, -.estimator) %>% 
+  mutate(.estimate = round(.estimate, 3))
+write_csv(lab_acc, file = "tables/LabAcc.csv")
 
-wilcox.test(lab_acc, tan_acc, paired = T)
-wilcox.test(lab_acc, cos_acc, paired = T)
-wilcox.test(cos_acc, tan_acc, paired = T)
+lab_vec <- lab_acc %>% pull(.estimate)
+cos_vec <- cos_acc %>% pull(.estimate)
+tan_vec <- tan_acc %>% pull(.estimate)
+
+wilcox.test(lab_vec, tan_vec, paired = T)
+wilcox.test(lab_vec, cos_vec, paired = T)
+wilcox.test(cos_vec, tan_vec, paired = T)
 
 ```
 
