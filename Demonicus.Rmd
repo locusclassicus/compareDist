@@ -79,6 +79,7 @@ input.texts <-  load.corpus.and.parse(files = "all",
 ```{r}
 source("~/R_Workflow/compareDist/DistResample.R")
 library(purrr)
+library(dplyr)
 set.seed(1234)
 cos <-  map_dfr(1:10, ~dist.resample(sample.size=6500,
                       method="cosine",

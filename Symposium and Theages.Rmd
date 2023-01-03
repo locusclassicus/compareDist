@@ -1,0 +1,165 @@
+---
+title: "Symposium and Theages"
+author: "Olga Alieva"
+date: "2023-01-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load libraries
+```{r}
+library(XML)
+library(tidyverse)
+```
+
+
+# Download text
+```{r}
+url_smp <- "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/master/data/tlg0059/tlg011/tlg0059.tlg011.perseus-grc2.xml"
+url_thg <- "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/master/data/tlg0059/tlg017/tlg0059.tlg017.perseus-grc2.xml"
+download.file(url_smp, destfile = "Symposium.xml")
+download.file(url_thg, destfile = "Theages.xml")
+```
+
+# Parse xml
+```{r}
+doc_smp <- xmlTreeParse("Symposium.xml", useInternalNodes = T)
+doc_thg <- xmlTreeParse("Theages.xml", useInternalNodes = T)
+
+title_smp <- xmlValue(getNodeSet(doc_smp, "/tei:TEI/tei:teiHeader/tei:fileDesc/tei:titleStmt/tei:title", namespaces = c(tei = "http://www.tei-c.org/ns/1.0")))
+title_thg <-  xmlValue(getNodeSet(doc_thg, "/tei:TEI/tei:teiHeader/tei:fileDesc/tei:titleStmt/tei:title", namespaces = c(tei = "http://www.tei-c.org/ns/1.0")))
+
+author_smp <- xmlValue(getNodeSet(doc_smp, "/tei:TEI/tei:teiHeader/tei:fileDesc/tei:titleStmt/tei:author", namespaces = c(tei = "http://www.tei-c.org/ns/1.0")))
+author_thg <- xmlValue(getNodeSet(doc_thg, "/tei:TEI/tei:teiHeader/tei:fileDesc/tei:titleStmt/tei:author", namespaces = c(tei = "http://www.tei-c.org/ns/1.0")))
+```
+
+# Get Text
+```{r}
+node_smp <- getNodeSet(doc_smp, "/tei:TEI//tei:text//tei:body//tei:div//tei:p",
+                     namespaces = c(tei = "http://www.tei-c.org/ns/1.0"))
+text_smp <- as.character(xmlValue(node_smp))
+text.clean.smp <- gsub("\n", " ", text_smp)
+text.v.smp <- paste(text.clean.smp, collapse = ' ')
+
+node_thg <- getNodeSet(doc_thg, "/tei:TEI//tei:text//tei:body//tei:div//tei:p",
+                     namespaces = c(tei = "http://www.tei-c.org/ns/1.0"))
+text_thg <- as.character(xmlValue(node_thg))
+text.clean.thg <- gsub("\n", " ", text_thg)
+text.v.thg <- paste(text.clean.thg, collapse = ' ')
+```
+
+# Tidy up
+```{r}
+# tidy up
+# remove several capital Greek letters in a row 
+text.v.smp <- text.v.smp %>% 
+  str_remove_all("[:upper:]{2,}")
+text.v.thg <- text.v.thg %>% 
+  str_remove_all("[:upper:]{2,}")
+
+# remove Latin characters (mostly editorial notes)
+text.v.smp <- text.v.smp %>% 
+  str_remove_all("[A-Za-z]")
+text.v.thg <- text.v.thg %>% 
+  str_remove_all("[A-Za-z]")
+
+# remove punctuation
+text.v.smp <- text.v.smp %>% 
+  str_remove_all("[:punct:]")
+text.v.thg <- text.v.thg %>% 
+  str_remove_all("[:punct:]")
+
+
+# tidy format
+Smp = tibble(author = author, book = title, text = text.v.smp)
+Thg = tibble(author = author, book = title, text = text.v.thg)
+
+# tokenize (this will be a very long data!)
+library(tidytext)
+Smp <- Smp %>% 
+  unnest_tokens(word, text)
+write.table(Smp$word, file = "Symposium.txt", 
+            row.names = FALSE, 
+            col.names = FALSE, 
+            quote = FALSE)
+
+Thg <- Thg %>% 
+  unnest_tokens(word, text)
+write.table(Thg$word, file = "Theages.txt", 
+            row.names = FALSE, 
+            col.names = FALSE, 
+            quote = FALSE)
+
+```
+
+#Load corpus
+```{r}
+library(stylo)
+input.texts <-  load.corpus.and.parse(files = "all", 
+                                      corpus.dir = "corpus_plat", 
+                                      features = "w", 
+                                      ngram.size = 1) 
+```
+
+# Distance Cosine 500-6500
+```{r}
+source("~/R_Workflow/compareDist/DistResample.R")
+library(purrr)
+set.seed(1234)
+cos <-  map_dfr(1:10, ~dist.resample(sample.size=6500,
+                      method="cosine",
+                      nr.features = 500,
+                      direction = "max",
+                      relative = T,
+                      use.scaled.freq = T), 
+                 .id = "id")
+```
+
+# Distance Tanimoto
+```{r}
+set.seed(1234)
+tan <-  map_dfr(1:10, ~dist.resample(sample.size=6000,
+                      method="tanimoto",
+                      nr.features = 1000,
+                      direction = "min",
+                      relative = T,
+                      use.scaled.freq = F), 
+                 .id = "id")
+```
+
+# Distance Labbe
+```{r}
+set.seed(1234)
+lab <-  map_dfr(1:10, ~dist.resample(sample.size=6000,
+                      method="labbe",
+                      nr.features = NULL,
+                      direction = "min",
+                      relative = F,
+                      use.scaled.freq = F), 
+                 .id = "id")
+```
+
+
+#Inspect results
+```{r}
+cos %>% filter(expected == "Symposium") %>% 
+  group_by(predicted) %>% count(predicted)
+cos %>% filter(expected == "Theages") %>% 
+  group_by(predicted) %>% count(predicted)
+
+tan %>% filter(expected == "Symposium") %>% 
+  group_by(predicted) %>% count(predicted)
+tan %>% filter(expected == "Theages") %>% 
+  group_by(predicted) %>% count(predicted)
+
+lab %>% filter(expected == "Symposium") %>% 
+  group_by(predicted) %>% count(predicted)
+lab %>% filter(expected == "Theages") %>% 
+  group_by(predicted) %>% count(predicted)
+
+
+
+```
