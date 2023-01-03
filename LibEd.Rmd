@@ -1,0 +1,128 @@
+---
+title: "De liberis educandis"
+author: "Olga Alieva"
+date: "2023-01-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load libraries
+```{r}
+library(XML)
+library(tidyverse)
+```
+
+
+# Download text
+```{r}
+url <- "https://raw.githubusercontent.com/PerseusDL/canonical-greekLit/master/data/tlg0007/tlg067/tlg0007.tlg067.perseus-grc2.xml"
+download.file(url, destfile = "LibED.xml")
+```
+
+# Parse xml
+```{r}
+doc <- xmlTreeParse("LibEd.xml", useInternalNodes = T)
+title <- xmlValue(getNodeSet(doc, "/tei:TEI/tei:teiHeader/tei:fileDesc/tei:titleStmt/tei:title", namespaces = c(tei = "http://www.tei-c.org/ns/1.0")))
+author <- xmlValue(getNodeSet(doc, "/tei:TEI/tei:teiHeader/tei:fileDesc/tei:titleStmt/tei:author", namespaces = c(tei = "http://www.tei-c.org/ns/1.0")))
+```
+
+# Get Text
+```{r}
+node <- getNodeSet(doc, "/tei:TEI//tei:text//tei:body//tei:div//tei:p",
+                     namespaces = c(tei = "http://www.tei-c.org/ns/1.0"))
+text <- as.character(xmlValue(node))
+text.clean <- gsub("\n", " ", text)
+text.v <- paste(text.clean, collapse = ' ')
+```
+
+# Tidy up
+```{r}
+# tidy up
+# remove several capital Greek letters in a row 
+text.v <- text.v %>% 
+  str_remove_all("[:upper:]{2,}")
+
+# remove Latin characters (mostly editorial notes)
+text.v <- text.v %>% 
+  str_remove_all("[A-Za-z]")
+
+# remove punctuation
+text.v <- text.v %>% 
+  str_remove_all("[:punct:]")
+
+# tidy format
+LibEd = tibble(author = author, book = title, text = text.v)
+
+# tokenize (this will be a very long data!)
+library(tidytext)
+LibEd <- LibEd %>% 
+  unnest_tokens(word, text)
+write.table(LibEd$word, file = "LibEd.txt", 
+            row.names = FALSE, 
+            col.names = FALSE, 
+            quote = FALSE)
+```
+
+#Load corpus
+```{r}
+library(stylo)
+input.texts <-  load.corpus.and.parse(files = "all", 
+                                      corpus.dir = "corpus_libed", 
+                                      features = "w", 
+                                      ngram.size = 1) 
+```
+
+# Distance Cosine 500-6500
+```{r}
+source("~/R_Workflow/compareDist/DistResample.R")
+library(purrr)
+set.seed(1234)
+cos <-  map_dfr(1:10, ~dist.resample(sample.size=6500,
+                      method="cosine",
+                      nr.features = 500,
+                      direction = "max",
+                      relative = T,
+                      use.scaled.freq = T), 
+                 .id = "id")
+```
+
+# Distance Tanimoto
+```{r}
+set.seed(1234)
+tan <-  map_dfr(1:10, ~dist.resample(sample.size=6000,
+                      method="tanimoto",
+                      nr.features = 1000,
+                      direction = "min",
+                      relative = T,
+                      use.scaled.freq = F), 
+                 .id = "id")
+```
+
+# Distance Labbe
+```{r}
+set.seed(1234)
+lab <-  map_dfr(1:10, ~dist.resample(sample.size=6000,
+                      method="labbe",
+                      nr.features = NULL,
+                      direction = "min",
+                      relative = F,
+                      use.scaled.freq = F), 
+                 .id = "id")
+```
+
+
+#Inspect results
+```{r}
+cos %>% filter(expected == "LibEd") %>% 
+  group_by(predicted) %>% count(predicted)
+
+tan %>% filter(expected == "LibEd") %>% 
+  group_by(predicted) %>% count(predicted)
+
+lab %>% filter(expected == "LibEd") %>% 
+  group_by(predicted) %>% count(predicted)
+
+```
