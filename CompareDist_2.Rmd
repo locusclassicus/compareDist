@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+**Отличается от CompareDist1 только тем, что те же тесты на энграммах, а не на словах**
+
 # load packages and source functions
 ```{r message=FALSE}
 library(tidyverse)

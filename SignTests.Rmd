@@ -12,18 +12,20 @@ knitr::opts_chunk$set(echo = TRUE)
 # Load and bind data
 ```{r}
 library(dplyr)
+library(yardstick)
 load("/Users/olga/R_Workflow/compareDist/data/CosS.Rdata")
 load("/Users/olga/R_Workflow/compareDist/data/Labbe.Rdata")
 load("/Users/olga/R_Workflow/compareDist/data/TanNS.Rdata")
 
 best <- cos_s %>% 
   bind_rows(labbe) %>% 
-  bind_rows(tan_ns)
+  bind_rows(tan_ns) %>% 
+  mutate(predicted = as.factor(predicted),
+         expected = as.factor(expected))
 ```
 
 # Prepare vectors
 ```{r}
-library(yardstick)
 cos_acc <- best %>% 
   filter(method == "cosine") %>% 
   filter(!mfw %in% c(100, 200)) %>% 
@@ -57,7 +59,6 @@ tan_vec <- tan_acc %>% pull(.estimate)
 wilcox.test(lab_vec, tan_vec, paired = T)
 wilcox.test(lab_vec, cos_vec, paired = T)
 wilcox.test(cos_vec, tan_vec, paired = T)
-
 ```
 
 # Test
@@ -91,3 +92,4 @@ significant <- tests %>% mutate(sign = (pvalue < 0.05))
 write.csv(significant, file = "tables/Significance.csv")
 significant %>% group_by(distance1, distance2) %>% count(sign)
 ```
+

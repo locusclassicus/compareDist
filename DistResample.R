@@ -9,12 +9,6 @@ dist.resample <- function(sample.size=3000,
   # empty tibble to store results
   tbl.all <- tibble()
   
-  # source local functions
-  if(method == "tfidf") {
-    source("~/R_Workflow/compareDist/Tfidf.R")
-  }
-  source("~/R_Workflow/compareDist/GetPred.R")
-  
   # philentropy distances
   phil.distances <- philentropy::getDistMethods()
   
@@ -55,32 +49,19 @@ dist.resample <- function(sample.size=3000,
     fn <- function(x, y) sum(abs(x - y)) / (2*sum(x))
     sample.dist <- as.matrix(proxy::dist(dtm, method = fn))
   } 
-  if(method == "cng") {
-    fn <- function(x, y) {
-      idx <- which(x != 0 & y != 0)
-      sum(((2*(x[idx]-y[idx]))/(x[idx]+y[idx]))^2)
-    }
-    sample.dist <- as.matrix(proxy::dist(dtm, method = fn))
-  }
-  if(method == "tfidf") {
-    sample.dist <- tfidf.dist(dtm)
-  }
   
   # get predictions for resampled data
   if(direction == "min") { # 1
     predicted <- get.pred.min(sample.dist) 
   } else { predicted <- get.pred.max(sample.dist)}
   
-  predicted <- sub("_.*", "", predicted)
-  
   # save result 
-  tbl <- tibble(predicted = as.factor(predicted), 
-                expected = as.factor(expected), 
+  tbl <- tibble(predicted = predicted, 
+                expected = expected, 
                 size = sample.size, 
                 mfw = nr.features, 
                 method = method, 
-                scale = use.scaled.freq)
-  levels(tbl$predicted) <- levels(tbl$expected) # fix factor levels bug
+                scale = use.scaled.freq) # здесь тоже все факторы убираем
   tbl.all <- bind_rows(tbl.all, tbl)
   
   return(tbl.all)

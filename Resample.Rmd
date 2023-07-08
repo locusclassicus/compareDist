@@ -1,0 +1,319 @@
+---
+title: "Resample.Rmd"
+author: "Olga Alieva"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load libraries
+```{r message=FALSE}
+library(tidymodels)
+library(tidyverse)
+library(stylo)
+library(philentropy)
+source("~/R_Workflow/compareDist/DistResample.R")
+source("~/R_Workflow/compareDist/GetPred.R")
+library(conflicted)
+
+# resolve conflicts
+tidymodels_prefer(quiet = F)
+```
+
+# Load corpus
+```{r message=FALSE}
+# load corpus
+input.texts <-  load.corpus.and.parse(files = "all", 
+                                      corpus.dir = "corpus", 
+                                      features = "w", 
+                                      ngram.size = 1) 
+
+input.texts.nest <- as_tibble(stack(input.texts)) %>%
+  relocate(ind, .before = values) %>%
+  rename(word = values) %>%
+  separate(ind, into = c("author", "text")) %>%
+  group_by(author, text) %>%
+  nest()
+```
+
+# Create folds
+```{r}
+authors <- unique(input.texts.nest$author)
+
+for(i in 1:length(authors)){
+ idx <-  grep(authors[i], names(input.texts))
+ input.fold <- input.texts[-idx]
+ name = paste0("fold_", i)
+ assign(name, input.fold)
+}
+```
+
+# Classification function
+```{r}
+dist.resample.fold <- function(
+    sample.size=3000,
+    method="euclidean",
+    nr.features = 100,
+    direction = "min",
+    relative = T,
+    use.scaled.freq = T) {
+  
+  # philentropy distances
+  phil.distances <- philentropy::getDistMethods()
+  
+  # empty tille
+  tbl.all <- tibble()
+  
+  # loop over all folds
+  for(fold in 1:17){
+     data =  get(paste0("fold_", fold))
+  
+    # make samples
+    current.samples = lapply(data, sample, size = sample.size, replace=T)
+  
+    # create dtm
+    wordlist = make.frequency.list(current.samples) #
+    wordlist_cut <- if(!is.null(nr.features)){
+      wordlist[1:nr.features]} else {
+        wordlist_cut = wordlist}
+    
+    dtm <-  make.table.of.frequencies(corpus = current.samples, 
+                                    features = wordlist_cut, 
+                                    absent.sensitive = F, 
+                                    relative = relative) %>%
+      suppressMessages()
+      dtm <- as.data.frame.matrix(as.table(dtm))
+  
+    # scale
+    if(use.scaled.freq == T){dtm <- scale(dtm)}
+  
+    # delete columns with all NAs
+    dtm <- dtm[,colSums(is.na(dtm)) < nrow(dtm)]
+    # if other NAs left
+    dtm[is.na(dtm)] <- 0
+  
+    # expected classes 
+    expected <- sub("_.*", "", rownames(dtm))
+    
+    # calculate distance
+    if(method %in% phil.distances) {
+      sample.dist <- philentropy::distance(dtm, method = method, use.row.names=T) %>% suppressMessages()
+    } 
+    if(method == "labbe"){
+      fn <- function(x, y) sum(abs(x - y)) / (2*sum(x))
+      sample.dist <- as.matrix(proxy::dist(dtm, method = fn))
+    } 
+    
+    # get predictions for resampled data
+    if(direction == "min") { # 1
+      predicted <- get.pred.min(sample.dist) 
+    } else { predicted <- get.pred.max(sample.dist)}
+    
+    # save result 
+    tbl <- tibble(predicted = predicted, 
+                  expected = expected, 
+                  size = sample.size, 
+                  mfw = nr.features, 
+                  method = method, 
+                  scale = use.scaled.freq,
+                  fold = fold
+                  )
+    tbl.all <- bind_rows(tbl.all, tbl)
+    }
+  
+  return(tbl.all)
+} 
+```
+
+# List fold objects
+
+```{r}
+# data_names <- ls(pattern = "fold_")
+```
+
+# Sample size and number of features
+```{r}
+# sample size and number of features
+sample.size = c(3000, 4000)
+nr.features = c(400, 700)
+```
+
+
+# Cosine folds
+
+```{r}
+
+tbl_cos <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample.fold(
+      sample.size=n, 
+      method="cosine",
+      nr.features = i,
+      direction = "max",
+      relative = T, 
+      use.scaled.freq = T),
+      .id = "id")
+    tbl_cos <- bind_rows(tbl_cos, iter)
+  }
+}
+
+# accuracy
+acc_cos <- tbl_cos %>% 
+  mutate(predicted = as.factor(predicted),
+         expected = as.factor(expected)) %>% 
+  group_by(method, size, mfw, fold, id) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  dplyr::select(-.metric, -.estimator) %>% 
+  arrange(.estimate)
+# 
+```
+
+# Tanimoto folds
+```{r}
+tbl_tan <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample.fold(
+      sample.size=n, 
+      method="tanimoto",
+      nr.features = i,
+      direction = "min",
+      relative = T, 
+      use.scaled.freq = F),
+      .id = "id")
+    tbl_tan <- bind_rows(tbl_tan, iter)
+  }
+}
+
+# accuracy
+acc_tan <- tbl_tan %>% 
+  mutate(predicted = as.factor(predicted),
+         expected = as.factor(expected)) %>% 
+  group_by(method, size, mfw, fold, id) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  dplyr::select(-.metric, -.estimator) %>% 
+  arrange(.estimate)
+```
+
+# Labbe folds
+```{r}
+tbl_lab <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample.fold(
+      sample.size=n, 
+      method="labbe",
+      nr.features = NULL,
+      direction = "min",
+      relative = F, 
+      use.scaled.freq = F),
+      .id = "id")
+    tbl_lab <- bind_rows(tbl_lab, iter)
+  }
+}
+
+# accuracy
+acc_lab <- tbl_lab %>% 
+  mutate(predicted = as.factor(predicted),
+         expected = as.factor(expected)) %>% 
+  group_by(method, size, fold, id) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  dplyr::select(-.metric, -.estimator) %>% 
+  arrange(.estimate)
+```
+
+# Jeffreys folds
+
+```{r}
+tbl_jeff <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample.fold(
+      sample.size=n, 
+      method="jeffreys",
+      nr.features = i,
+      direction = "min",
+      relative = T, 
+      use.scaled.freq = F),
+      .id = "id")
+    tbl_jeff <- bind_rows(tbl_jeff, iter)
+  }
+}
+
+# accuracy
+acc_jeff <- tbl_jeff %>% 
+  mutate(predicted = as.factor(predicted),
+         expected = as.factor(expected)) %>% 
+  group_by(method, size, mfw, fold, id) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  dplyr::select(-.metric, -.estimator) %>% 
+  arrange(.estimate)
+# 
+```
+
+# Delta folds
+
+```{r}
+
+tbl_delta <- tibble()
+for(n in sample.size){
+  for(i in nr.features){
+    iter <- map_dfr(1:10, ~dist.resample.fold(
+      sample.size=n, 
+      method="manhattan",
+      nr.features = i,
+      direction = "min",
+      relative = T, 
+      use.scaled.freq = T),
+      .id = "id")
+    tbl_delta <- bind_rows(tbl_delta, iter)
+  }
+}
+
+# accuracy
+acc_delta <- tbl_delta %>% 
+  mutate(predicted = as.factor(predicted),
+         expected = as.factor(expected)) %>% 
+  group_by(method, size, mfw, fold, id) %>% 
+  accuracy(truth = expected, estimate = predicted) %>% 
+  dplyr::select(-.metric, -.estimator) %>% 
+  arrange(.estimate) 
+# 
+```
+
+
+# Plot accuracy
+```{r}
+acc_all <- acc_delta %>% 
+  bind_rows(acc_cos) %>% 
+  bind_rows(acc_tan) %>% 
+  bind_rows(acc_jeff) %>% 
+  bind_rows(acc_lab)
+
+acc_all <- acc_all %>% 
+  group_by(method, size, mfw, fold, id) %>% 
+  summarise(.estimate = mean(.estimate))
+
+acc_all %>% 
+  filter(size == 2000, mfw == 700) %>% 
+  ggplot(aes(.estimate)) + 
+  geom_line(aes(color=method), 
+            stat = "density", 
+            linewidth = 1.1, alpha = 0.7) + 
+  theme_bw()
+```
+
+# Normality
+
+```{r}
+normality <- acc_all %>% 
+  filter(size == 2000, mfw == 400) %>%
+  group_by(method) %>%
+  summarise(stat = shapiro.test(.estimate)$statistic, 
+            p_value = shapiro.test(.estimate)$p.value)
+normality
+```

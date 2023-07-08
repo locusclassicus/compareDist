@@ -15,6 +15,7 @@ library(tidyverse)
 library(stylo)
 library(philentropy)
 source("~/R_Workflow/compareDist/DistResample.R")
+source("~/R_Workflow/compareDist/GetPred.R")
 ```
 
 # Sample size and number of features
@@ -318,21 +319,4 @@ for(n in sample.size){
     labbe <- bind_rows(labbe, iter)
 }
 save(labbe, file = "data/Labbe.Rdata")
-```
-
-# CNG 
-```{r}
-set.seed(1234)
-cng_ns <- tibble()
-for(n in sample.size){
-    iter <- map_dfr(1:10, ~dist.resample(sample.size=n,
-                                         method="cng",
-                                         nr.features = NULL,
-                                         direction = "min",
-                                         relative = T, 
-                                         use.scaled.freq = F),
-                           .id = "id")
-    cng_ns <- bind_rows(cng_ns, iter)
-}
-save(cng_ns, file = "data/CngNS.Rdata")
 ```

@@ -74,8 +74,8 @@ text.v.thg <- text.v.thg %>%
 
 
 # tidy format
-Smp = tibble(author = author, book = title, text = text.v.smp)
-Thg = tibble(author = author, book = title, text = text.v.thg)
+Smp = tibble(author = author_smp, book = title_smp, text = text.v.smp)
+Thg = tibble(author = author_smp, book = title_smp, text = text.v.thg)
 
 # tokenize (this will be a very long data!)
 library(tidytext)
@@ -107,6 +107,7 @@ input.texts <-  load.corpus.and.parse(files = "all",
 # Distance Cosine 500-6500
 ```{r}
 source("~/R_Workflow/compareDist/DistResample.R")
+source("~/R_Workflow/compareDist/GetPred.R")
 library(purrr)
 set.seed(1234)
 cos <-  map_dfr(1:10, ~dist.resample(sample.size=6500,
@@ -145,17 +146,21 @@ lab <-  map_dfr(1:10, ~dist.resample(sample.size=6000,
 
 #Inspect results
 ```{r}
-cos %>% filter(expected == "Symposium") %>% 
-  group_by(predicted) %>% count(predicted)
+cos %>% 
+  filter(expected == "Symposium") %>%
+  group_by(predicted) %>% 
+  count(predicted)
+tan %>% filter(expected == "Symposium") %>% 
+  group_by(predicted) %>% 
+  count(predicted)
+lab %>% filter(expected == "Symposium") %>% 
+  group_by(predicted) %>% 
+  count(predicted)
+
+
 cos %>% filter(expected == "Theages") %>% 
   group_by(predicted) %>% count(predicted)
-
-tan %>% filter(expected == "Symposium") %>% 
-  group_by(predicted) %>% count(predicted)
 tan %>% filter(expected == "Theages") %>% 
-  group_by(predicted) %>% count(predicted)
-
-lab %>% filter(expected == "Symposium") %>% 
   group_by(predicted) %>% count(predicted)
 lab %>% filter(expected == "Theages") %>% 
   group_by(predicted) %>% count(predicted)

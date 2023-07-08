@@ -5,7 +5,7 @@ get.pred.min <- function(data) {
     nearest <- names(which.min(data[i, -i]))
     predicted <- c(predicted, nearest)
   }
-  predicted <- factor(sub("_.*", "", predicted))
+  predicted <- sub("_.*", "", predicted) # здесь убираем фактор
   return(predicted)
 }
 
@@ -16,6 +16,6 @@ get.pred.max <- function(data) {
     nearest <- names(which.max(data[i, -i]))
     predicted <- c(predicted, nearest)
   }
-  predicted <- factor(sub("_.*", "", predicted))
+  predicted <- sub("_.*", "", predicted) # здесь убираем фактор
   return(predicted)
 } 

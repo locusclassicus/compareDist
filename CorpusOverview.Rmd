@@ -19,6 +19,7 @@ library(dplyr)
 library(ggplot2)
 library(packcircles)
 library(treemap)
+library(colorspace)
 ```
 
 
@@ -42,7 +43,7 @@ corpus <- rename(corpus, word = X1)
 
 # Save
 ```{r}
-save(corpus, file = "./data/Corpus.Rdata")
+# save(corpus, file = "./data/Corpus.Rdata")
 ```
 
 # Stats
@@ -107,14 +108,14 @@ pl
 ```{r}
 corpus_data <- corpus %>% group_by(author, book) %>% count() 
 corpus_data
-write.csv(corpus_data, file = "Titles.csv")
+# write.csv(corpus_data, file = "tables/Titles.csv")
 
 corpus_data %>% ungroup() %>%  summarise(total = sum(n))
 ```
 
 # Tree map
 ```{r}
-png(filename="tree.png",width=1050, height=674)
+# png(filename="tree.png",width=1050, height=674)
 treemap(corpus_data,
         index=c("author", "book"),
         vSize="n",
@@ -132,20 +133,30 @@ treemap(corpus_data,
         border.col=c("grey37","grey45"),
         fontsize.title = 0
         )
-dev.off
+# dev.off
 ```
 
 # Bars
-```{r}
-corpus_data %>% 
+```{r message=FALSE}
+library(scales)
+set.seed(123)
+hex_codes <- sample((hue_pal(l = 80, direction = -1)(57)), 57)
+# show_col(hex_codes) 
+
+dat <- corpus_data %>% 
   group_by(author) %>% 
   mutate(sum = sum(n)) %>% 
   ungroup() %>% 
-  ggplot(aes(x=reorder(author, sum), y=n, 
-             fill = book, label = book)) + 
+  bind_cols(c(1:57)) %>% 
+  rename(numb = `...5`)
+  
+dat %>% ggplot(aes(x=reorder(author, sum), y=n,
+                   fill = as.factor(numb),
+                   label = book)) + 
   geom_bar(stat="identity", 
            position = position_stack(), 
            show.legend = F) + 
+  scale_discrete_manual(aes = "fill", values = hex_codes) +
   geom_text(size=3, 
             position = position_stack(vjust=0.5), 
             colour = "grey30") +
@@ -155,4 +166,15 @@ corpus_data %>%
   ylab(NULL)
 ```
 
-
+```{r}
+ggsave(
+  filename = "images/CorpusOverview.png",
+  plot = last_plot(),
+  device = "png",
+  scale = 1,
+  width = 4000,
+  height = 2000,
+  units = "px",
+  dpi = 300
+)
+```

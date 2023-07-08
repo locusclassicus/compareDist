@@ -59,10 +59,11 @@ Dem = tibble(author = author, book = title, text = text.v)
 library(tidytext)
 Dem <- Dem %>% 
   unnest_tokens(word, text)
-write.table(Dem$word, file = "Isocrates_Dem.txt", 
-            row.names = FALSE, 
-            col.names = FALSE, 
-            quote = FALSE)
+
+# write.table(Dem$word, file = "Isocrates_Dem.txt", 
+#             row.names = FALSE, 
+#             col.names = FALSE, 
+#             quote = FALSE)
 ```
 
 #Load corpus
@@ -78,6 +79,7 @@ input.texts <-  load.corpus.and.parse(files = "all",
 # Distance Cosine 500-6500
 ```{r}
 source("~/R_Workflow/compareDist/DistResample.R")
+source("~/R_Workflow/compareDist/GetPred.R")
 library(purrr)
 library(dplyr)
 set.seed(1234)
@@ -125,6 +127,5 @@ tan %>% filter(expected == "Demonicus") %>%
 
 lab %>% filter(expected == "Demonicus") %>% 
   group_by(predicted) %>% count(predicted)
-
 ```
 

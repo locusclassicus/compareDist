@@ -35,7 +35,7 @@ load("/Users/olga/R_Workflow/compareDist/data/3NTanS.Rdata")
 
 # Bind data
 ```{r}
-data_w <- manh3N_s %>% 
+data_c <- manh3N_s %>% 
   bind_rows(manh3N_ns) %>% 
   bind_rows(eucl3N_ns) %>% 
   bind_rows(eucl3N_s) %>% 
@@ -53,37 +53,45 @@ data_w <- manh3N_s %>%
 
 # Get mean accuracy for each method
 ```{r}
-acc_all <- data_w %>% group_by(method, scale) %>%
+acc_all_c <- data_c %>% 
+  mutate(expected = as.factor(expected)) %>% 
+  mutate(predicted = as.factor(predicted)) %>% 
+  group_by(method, scale) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
   select(-.metric, -.estimator) %>% 
-  arrange(-.estimate) %>% mutate(.estimate = round(.estimate, 3))
-write_csv(acc_all, "tables/3NAccAll.csv")
+  arrange(-.estimate) %>% 
+  mutate(.estimate = round(.estimate, 3))
+write_csv(acc_all_c, "tables/AccAllC.csv")
 ```
 
 # Delete methods with very low performace
 ```{r}
-data_w <- manh_s %>% 
-  bind_rows(manh_ns) %>% 
-  bind_rows(eucl_ns) %>% 
-  bind_rows(cos_ns) %>% 
-  bind_rows(cos_s) %>% 
-  bind_rows(tan_ns) %>% 
-  bind_rows(canb_ns) %>% 
-  bind_rows(clar_ns) %>% 
-  bind_rows(jeff_ns) %>% 
-  bind_rows(labbe)
+data_c <- manh3N_s %>% 
+  bind_rows(manh3N_ns) %>% 
+  bind_rows(eucl3N_ns) %>% 
+  bind_rows(cos3N_ns) %>% 
+  bind_rows(cos3N_s) %>% 
+  bind_rows(tan3N_ns) %>% 
+  bind_rows(canb3N_ns) %>% 
+  bind_rows(clar3N_ns) %>% 
+  bind_rows(jeff3N_ns) %>% 
+  bind_rows(labbe3N)
 ```
 
 
 # Accuracy by mfw / sample size
 ```{r}
-png(filename="AccW.png",width=1000, height=436)
-data_w %>% 
+data_c %>% 
   mutate(mfw = cut(mfw, breaks=c(0, 200, 400, 600, 800, 1000), 
                    labels=paste0("mfw", c(200, 400, 600, 800, 1000),
                                  sep=""))) %>% 
-  group_by(size, mfw, method, scale) %>% 
+  group_by(size, mfw, method, scale) %>%
+  mutate(expected = as.factor(expected)) %>% 
+  mutate(predicted = as.factor(predicted)) %>%
   accuracy(truth = expected, estimate = predicted) %>% 
+  select(-.metric, -.estimator) %>% 
+  arrange(-.estimate) %>% 
+  mutate(.estimate = round(.estimate, 3)) %>% 
   ggplot(aes(x = size, y=.estimate, color = mfw)) +
   geom_line() + 
   theme(legend.position = c(0.8, 0.2)) +
@@ -91,33 +99,59 @@ data_w %>%
   theme_bw() + 
   xlab("длина отрывка") +
   ylab("точность")
-dev.off()
+```
+
+## Save plot
+
+```{r}
+ggsave(
+  filename = "images/AccC.png",
+  plot = last_plot(),
+  device = "png",
+  scale = 1,
+  width = NA,
+  height = 1200,
+  units = "px",
+  dpi = 300
+)
 ```
 # Maximum accuracy 
 ```{r}
-top_w <- data_w %>% group_by(method, scale, mfw, size) %>% 
+top_c <- data_c %>% 
+  mutate(expected = as.factor(expected)) %>% 
+  mutate(predicted = as.factor(predicted)) %>%
+  group_by(method, scale, mfw, size) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
   select(-.metric, -.estimator) %>% 
   mutate(.estimate = round(.estimate, 3)) %>% 
   slice_max(.estimate, n=10)
-write_csv(top_w, "TopW.csv")
+write_csv(top_c, "tables/TopC.csv")
 ```
 
 # Where classifiers fail
 ```{r}
-data_w %>% filter(method == "cosine", scale == T) %>% 
+data_c %>% 
+  filter(method == "cosine", scale == T) %>% 
+  mutate(expected = as.factor(expected)) %>% 
+  mutate(predicted = as.factor(predicted)) %>%
   group_by(expected) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
   select(-.metric, -.estimator) %>% 
   arrange(.estimate)
 
-data_w %>% filter(method == "labbe") %>% 
+data_c %>% 
+  filter(method == "labbe") %>% 
+  mutate(expected = as.factor(expected)) %>% 
+  mutate(predicted = as.factor(predicted)) %>%
   group_by(expected) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
   select(-.metric, -.estimator) %>% 
   arrange(.estimate)
 
-data_w %>% filter(method == "tanimoto", scale == F) %>% 
+data_c %>% 
+  filter(method == "tanimoto", scale == F) %>% 
+  mutate(expected = as.factor(expected)) %>% 
+  mutate(predicted = as.factor(predicted)) %>%
   group_by(expected) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
   select(-.metric, -.estimator) %>% 
@@ -126,7 +160,8 @@ data_w %>% filter(method == "tanimoto", scale == F) %>%
 
 # Common errors
 ```{r}
-errors <- data_w %>% filter(method == "cosine", scale == T,
+errors <- data_c %>% 
+  filter(method == "cosine", scale == T,
                   expected %in% c("Aristotle", "Aristides", 
                                   "Demosthenes")) %>%
   group_by(expected) %>% 
@@ -134,24 +169,33 @@ errors <- data_w %>% filter(method == "cosine", scale == T,
   group_by(expected) %>% 
   slice_max(n, n = 4)
   
-write_csv(errors, "Errors3W.csv")
+write_csv(errors, "Errors3N.csv")
 ```
 
 # Where classifiers perform best
 ```{r}
-data_w %>% filter(method == "cosine", scale == T) %>% 
+data_c %>% 
+  filter(method == "cosine", scale == T) %>%
+  mutate(expected = as.factor(expected)) %>% 
+  mutate(predicted = as.factor(predicted)) %>%
   group_by(expected) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
   select(-.metric, -.estimator) %>% 
   arrange(-.estimate)
 
-data_w %>% filter(method == "labbe") %>% 
+data_c %>% 
+  filter(method == "labbe") %>% 
+  mutate(expected = as.factor(expected)) %>% 
+  mutate(predicted = as.factor(predicted)) %>%
   group_by(expected) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
   select(-.metric, -.estimator) %>% 
   arrange(-.estimate)
 
-data_w %>% filter(method == "tanimoto", scale == F) %>% 
+data_c %>% 
+  filter(method == "tanimoto", scale == F) %>% 
+  mutate(expected = as.factor(expected)) %>% 
+  mutate(predicted = as.factor(predicted)) %>%
   group_by(expected) %>% 
   accuracy(truth = expected, estimate = predicted) %>% 
   select(-.metric, -.estimator) %>% 

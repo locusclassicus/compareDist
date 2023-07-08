@@ -60,10 +60,10 @@ LibEd = tibble(author = author, book = title, text = text.v)
 library(tidytext)
 LibEd <- LibEd %>% 
   unnest_tokens(word, text)
-write.table(LibEd$word, file = "LibEd.txt", 
-            row.names = FALSE, 
-            col.names = FALSE, 
-            quote = FALSE)
+# write.table(LibEd$word, file = "LibEd.txt", 
+#             row.names = FALSE, 
+#             col.names = FALSE, 
+#             quote = FALSE)
 ```
 
 #Load corpus
