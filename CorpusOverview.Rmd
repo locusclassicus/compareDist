@@ -140,7 +140,7 @@ treemap(corpus_data,
 ```{r message=FALSE}
 library(scales)
 set.seed(123)
-hex_codes <- sample((hue_pal(l = 80, direction = -1)(57)), 57)
+hex_codes <- hue_pal(l = 80, direction = -1)(57)
 # show_col(hex_codes) 
 
 dat <- corpus_data %>% 
@@ -155,6 +155,7 @@ dat %>% ggplot(aes(x=reorder(author, sum), y=n,
                    label = book)) + 
   geom_bar(stat="identity", 
            position = position_stack(), 
+           color = "white",
            show.legend = F) + 
   scale_discrete_manual(aes = "fill", values = hex_codes) +
   geom_text(size=3, 

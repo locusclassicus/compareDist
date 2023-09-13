@@ -1,0 +1,2 @@
+load("/Users/olga/R_Workflow/compareDist/data/Corpus.Rdata")
+load("/Users/olga/R_Workflow/compareDist/data/Cos100.Rdata")
